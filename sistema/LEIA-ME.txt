@@ -1,0 +1,131 @@
+COMO RODAR
+1) Backend:   cd sistema/backend  ->  npm install  ->  npm start   (http://localhost:3000)
+              (na 1a vez cria o saep.db lendo ../../saep_db.sql; para recriar, apague o saep.db)
+              Instale a extensão SQLite Viewer
+2) Frontend:  abra sistema/frontend no VS Code -> botão direito em index.html -> "Open with Live Server"
+
+LOGINS DE TESTE: admin/admin123 | camila/vet123 | recepcao/123456
+
+guia de consulta rápida
+
+Como usar: quando pedirem algo, procure a pergunta abaixo. Cada item diz **onde mostrar** (tela ou arquivo, use `Ctrl + F` para achar o trecho) e **o que falar**.
+
+## Resumo em uma frase
+
+> "Front-end em HTML, CSS e JavaScript que chama uma API em Node/Express, que grava em um banco SQLite."
+
+```
+Navegador (HTML + app.js)  --fetch-->  server.js (Express)  --SQL-->  saep.db
+```
+
+## Antes de começar
+
+1. Terminal em `sistema/backend` → `npm start` (precisa mostrar `API rodando em http://localhost:3000`)
+2. `sistema/frontend/index.html` → Open with Live Server
+3. Login: `admin` / `admin123`
+
+---
+
+## "Mostre o login / o erro de login"
+
+- **Tela:** digite senha errada. Aparece "Usuário ou senha inválidos."
+- **Código:** `server.js`, procure `app.post('/login'`. Se não acha o usuário ou a senha não confere, devolve **401**.
+- **Front:** `app.js`, procure `LOGIN`. O `catch` mostra a mensagem na tela.
+- **Falar:** "A API valida e devolve 401. O front só exibe o erro."
+
+## "Mostre o logout"
+
+- **Tela:** botão **Sair** no canto superior direito.
+- **Código:** `app.js`, procure `btnSair`. Ele faz `localStorage.removeItem` e volta para o `index.html`.
+- **Falar:** "O login guarda o nome do usuário no `localStorage`. Sair apaga isso."
+
+## "O que acontece se eu abrir uma página sem logar?"
+
+- **Teste:** clique em Sair e tente abrir `tutores.html` direto. Volta para o login.
+- **Código:** `app.js`, procure `Sessão (localStorage)`. Sem `usuarioNome`, redireciona para o `index.html`.
+
+## "Mostre a criptografia / como a senha é guardada"
+
+- **Banco:** abra o `saep.db` (extensão **SQLite Viewer** no VS Code, ou **DB Browser for SQLite**) e veja as tabelas `usuarios` e `tutores`. Senha e CPF aparecem como `salt:hash`.
+- **Código:** `server.js`, procure `Criptografia`. A função `criptografar` gera um salt aleatório e aplica `scrypt`. A função `confere` refaz o hash e compara.
+- **Falar:** "É hash, não criptografia reversível. O salt faz senhas iguais gerarem hashes diferentes. No login, refaço o hash com o mesmo salt e comparo."
+
+## "O CPF é protegido?"
+
+- **Tela:** na lista de tutores a coluna CPF mostra 🔒 protegido.
+- **Código:** `server.js`, rota `app.get('/tutores'`. O `SELECT` não inclui a coluna `cpf`, então a API nunca devolve.
+- **Cadastro:** rota `app.post('/tutores'`. O CPF é criptografado **antes** do `INSERT`.
+
+## "Mostre a busca de tutores"
+
+- **Tela:** em Tutores, digite parte de um nome, e-mail ou telefone e clique em Buscar. O botão Limpar volta a lista.
+- **Código:** `server.js`, rota `app.get('/tutores'`. Usa `LIKE` em nome, e-mail e telefone. No front, `formBusca` em `app.js`.
+
+## "Mostre o cadastro de tutor"
+
+- **Tela:** formulário "Novo tutor". CPF precisa de 11 dígitos.
+- **Código:** `server.js`, `app.post('/tutores'`. Valida o nome e o CPF (400 se inválido).
+
+## "Mostre a edição de tutor"
+
+- **Tela:** botão **Editar** na linha. Os dados sobem para o formulário. Altere e salve.
+- **Código:** `server.js`, `app.put('/tutores/:id'`. No front, `editarTutor` em `app.js`.
+- **Falar:** "O mesmo formulário cadastra e edita. Se o campo oculto `tutorId` tem valor, envia PUT. Se não, POST. O CPF só muda se eu digitar um novo."
+
+## "Mostre o cadastro de pet / pet sem tutor"
+
+- **Tela:** em Pets, o campo Tutor é obrigatório e vem preenchido com os tutores do banco.
+- **Código:** `server.js`, `app.post('/pets'`. Faz `SELECT` no tutor e, se não existe, devolve "Tutor não encontrado."
+- **Falar:** "Tem validação no front (`required`) e no back. Além disso, o banco tem chave estrangeira."
+
+## "Mostre a listagem de agendamentos / a ordenação"
+
+- **Tela:** a tabela mostra data, serviço, status, pet, espécie, tutor e telefone, em ordem de data.
+- **Código:** `server.js`, `app.get('/agendamentos'`. Usa **JOIN** de agendamentos, pets e tutores e `ORDER BY a.data_agendamento ASC`.
+
+## "Mostre a edição de agendamento (só a data)"
+
+- **Tela:** botão **Alterar data**, escolha a nova data e salve. A lista reordena.
+- **Código:** `server.js`, `app.put('/agendamentos/:id'`. O `UPDATE` altera **somente** `data_agendamento`.
+
+## "Mostre o banco / a estrutura das tabelas"
+
+- **Arquivo:** `saep_db.sql`. São 4 tabelas: `usuarios`, `tutores`, `pets`, `agendamentos`.
+- **Relações:** tutor tem vários pets (`pets.tutor_id`), e pet tem vários agendamentos (`agendamentos.pet_id`). Ambas são chaves estrangeiras.
+- **Falar:** "O `PRAGMA foreign_keys = ON` faz o SQLite respeitar as chaves estrangeiras."
+
+---
+
+## Perguntas conceituais
+
+| Pergunta | Resposta curta |
+|----------|----------------|
+| Por que hash e não criptografia reversível? | Ninguém precisa ler a senha de volta. Se o banco vazar, o original não aparece. |
+| Para que serve o salt? | Senhas iguais geram hashes diferentes e impede ataques com tabelas prontas. |
+| O que é JOIN? | Junta dados de tabelas relacionadas em uma consulta só. |
+| O que é chave estrangeira? | Garante que um pet só exista ligado a um tutor real. |
+| Para que servem os `?` no SQL? | Evitam **SQL Injection**. |
+| Para que serve a função `esc()`? | Escapa o texto do banco antes de mostrar e evita **XSS**. |
+| O que é a API / REST? | Rotas HTTP (GET, POST, PUT) que o front chama para ler e gravar dados. |
+| O que é `fetch`? | Função do JavaScript que faz a requisição para a API. |
+| O que é `async/await`? | Forma de esperar a resposta do banco ou da API sem travar a tela. |
+| O que é CORS? | Libera o front (porta 5500) para chamar a API (porta 3000). |
+| O que significa 201, 400, 401, 500? | 201 criado, 400 dado inválido, 401 não autorizado, 500 erro no servidor. |
+| O que é `localStorage`? | Memória do navegador. Aqui guarda o nome de quem está logado. |
+| Para que serve o `package.json`? | Lista as dependências (express, cors, sqlite3) e o comando `npm start`. |
+| O que é `node_modules`? | Pasta com as bibliotecas instaladas pelo `npm install`. |
+
+## Pontos fracos (se perguntarem, admita e diga a melhoria)
+
+- A sessão usa só `localStorage`, sem token. A melhoria seria **JWT** com rotas protegidas no backend.
+- O CPF é validado só pela quantidade de dígitos, não pelo cálculo oficial.
+- Aceita agendamento em data passada.
+- O `cors` está aberto para qualquer origem.
+- O status do agendamento não pode ser alterado pela tela.
+
+## Se der problema na hora
+
+- **"Failed to fetch" no login:** o backend não está rodando. Rode `npm start`.
+- **Erro de `sqlite3` / Win32:** use Node LTS, apague `node_modules` e `package-lock.json` e rode `npm install`.
+- **Banco estranho ou vazio:** apague `saep.db` e rode `npm start` de novo.
+- **Visual sem estilo:** atualize com `Ctrl + F5`.
